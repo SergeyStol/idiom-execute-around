@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.nio.file.spi.FileSystemProvider;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -61,10 +63,23 @@ public class Main {
       Map<String, Object> env = new HashMap<>();
       env.put("create", String.valueOf(createNewIfNotExists));
       env.put("useTempFile", Boolean.TRUE);
-      try (FileSystem fs = FileSystems.newFileSystem(zipFile, env)) {
+      try (FileSystem fs = newFileSystem(zipFile, env)) {
          fileSystemConsumer.accept(fs);
       } catch (IOException ie) {
          throw new RuntimeException(String.format("Cannot consume zipfs: %s", zipFile), ie);
       }
+   }
+
+   public static FileSystem newFileSystem(Path path, Map<String, ?> env)
+           throws IOException {
+      if (path == null)
+         throw new NullPointerException();
+      for (FileSystemProvider provider : FileSystemProvider.installedProviders()) {
+         try {
+            return provider.newFileSystem(path, env);
+         } catch (UnsupportedOperationException uoe) {
+         }
+      }
+      throw new ProviderNotFoundException("Provider not found");
    }
 }
